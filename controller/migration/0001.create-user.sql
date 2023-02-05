@@ -6,9 +6,9 @@ CREATE TABLE eng_user (
     -- The id column is the primary key and will be generated using the sequence
     id INTEGER DEFAULT nextval('eng_user_id_seq') PRIMARY KEY,
     -- The name column is a required text field
-    name TEXT NOT NULL,
+    username TEXT NOT NULL,
     -- The surname column is a required text field
-    surname TEXT NOT NULL
+    email TEXT NOT NULL
 );
 
 -- Add a comment to the eng_user table

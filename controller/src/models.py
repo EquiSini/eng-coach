@@ -3,17 +3,18 @@ from pydantic import BaseModel
 from .database import DatabaseConnection
 
 #CONSTS
-INSERT_USER_QUERY = "INSERT INTO eng_user (name, surname) VALUES (%s, %s) RETURNING id"
-SELECT_USER_QUERY = "SELECT id, name, surname FROM eng_user WHERE id = %s"
-UPDATE_USER_QUERY = "UPDATE eng_user SET name=%s, surname=%s WHERE id=%s"
+INSERT_USER_QUERY = "INSERT INTO eng_user (username, email) VALUES (%s, %s) RETURNING id"
+SELECT_USER_QUERY = "SELECT id, username, email FROM eng_user WHERE id = %s"
+UPDATE_USER_QUERY = "UPDATE eng_user SET username=%s, email=%s WHERE id=%s"
 DELETE_USER_QUERY = "DELETE FROM eng_user WHERE id = %s"
 
 
 class User(BaseModel):
     '''User dataclass'''
     id: int = 0
-    name: str
-    surname: str
+    username: str
+    email: str
+    disabled: bool
     # pass: str pbkdf2 python
 
 class NoDataFoundError(Exception):
@@ -34,16 +35,16 @@ class UserProducer:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def create(self, name:str, surname:str) -> User:
+    def create(self, username:str, email:str) -> User:
         """Create a new user"""
         connection = DatabaseConnection().get_connection()
         cursor = connection.cursor()
-        cursor.execute(INSERT_USER_QUERY, (name, surname))
+        cursor.execute(INSERT_USER_QUERY, (username, email))
         result = cursor.fetchone()
         connection.commit()
         cursor.close()
         connection.close()
-        return User(id=result[0], name=name, surname=surname)
+        return User(id=result[0], username=username, email=email)
 
     def read(self, user_id:int) -> User:
         """Get a user by id"""
@@ -55,14 +56,14 @@ class UserProducer:
         connection.close()
         if not result:
             raise NoDataFoundError("User not found")
-        return User(id=result[0], name=result[1], surname=result[2])
+        return User(id=result[0], username=result[1], email=result[2])
             
 
     def update(self, user: User) -> bool:
         """Update a user"""
         connection = DatabaseConnection().get_connection()
         cursor = connection.cursor()
-        cursor.execute(UPDATE_USER_QUERY,(user.name, user.surname, user.id))
+        cursor.execute(UPDATE_USER_QUERY,(user.username, user.email, user.id))
         connection.commit()
         cursor.close()
         connection.close()

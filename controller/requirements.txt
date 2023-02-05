@@ -6,3 +6,5 @@ fastapi>=0.75.0
 matplotlib>=3.4.1
 yoyo-migrations>=7.3.2
 google-api-python-client>=2.75.0
+oauth2client>=2.4.7
+PyJWT>=2.6.0
