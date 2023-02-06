@@ -28,7 +28,20 @@ class DatabaseConnection:
             )
         return cls._instance
 
+    def __enter__(self):
+        self.connection = self._pool.getconn()
+        return self
+
+    def __exit__(self, type, value, traceback):
+        #Exception handling here
+        self._pool.putconn(self.connection)
+
     @classmethod
     def get_connection(cls):
         '''Return session from pool'''
         return cls._pool.getconn()
+
+    @classmethod
+    def release_connection(cls, connection):
+        '''Return session to pool'''
+        return cls._pool.putconn(connection)
