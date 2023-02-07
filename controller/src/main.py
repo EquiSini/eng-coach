@@ -15,9 +15,10 @@ import google_auth_oauthlib.flow
 from typing import List
 
 # Import the User model and the DatabaseConnection class
-from .models import User, UserProducer, NoDataFoundError
+from .models import User, UserProducer, NoDataFoundError, VerbSelector, VerbChecker
 from .settings import CLIENT_SECRETS_JSON, SCOPES, API_SERVICE_NAME, API_VERSION, API_LOCATION
 from .settings import COOKIE_AUTHORIZATION_NAME, COOKIE_DOMAIN
+from .htmljs import HTML_HEAD, HTML_BODY, HTML_BODY_ROW
 
 
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
@@ -188,83 +189,10 @@ async def user_profile(request: Request) -> User:
     except NoDataFoundError:
         return RedirectResponse('google_login')
 
-def make_task_html_page():
-    head = '''<!DOCTYPE html>
-<html>
-  <head>
-    <script>
-        let ids = [];
-
-      function getExampleValues() {
-        // Fetch the example values from the /getExample endpoint
-        fetch("/getExample")
-          .then(response => response.json())
-          .then(data => {
-            // Populate the first column of edit fields with the values from the response
-            ids = [];
-            for (let i = 0; i < 5; i++) {
-                ids.push(data[i].id);
-                document.getElementById(`example_${i}`).value = data[i].word;
-            }
-          });
-      }
-
-      async function submitForm() {
-        // Collect the answers from the form
-        let answers = [];
-        for (let i = 0; i < 5; i++) {
-          let answer1 = document.getElementById("answer1_" + i).value;
-          let answer2 = document.getElementById("answer2_" + i).value;
-          let id = ids[i];
-          answers.push({ id, answer1, answer2 });
-        }
-
-        // Send the answers to the API
-        let response = await fetch("/submitAnswer", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(answers),
-        });
-        let data = await response.json();
-
-        // Check the response for errors
-        if (data.mistakes.length > 0) {
-          for (let i = 0; i < data.mistakes.length; i++) {
-            document.getElementById("row_" + data.mistakes[i]).style.backgroundColor = "red";
-          }
-        } else {
-          location.reload();
-        }
-      }
-    </script>
-  </head>
-'''
-    body = '''  <body onload="getExampleValues()">
-    <form>
-      <table>
-        <tbody>
-          {table_body}
-        </tbody>
-      </table>
-      <button type="button" onclick="submitForm()">Submit</button>
-    </form>
-  </body>
-</html>'''
-    row = '''<tr id="row_{ind}">
-              <td>
-                <input type="text" id="example_{ind}" disabled>
-              </td>
-              <td>
-                <input type="text" id="answer1_{ind}">
-              </td>
-              <td>
-                <input type="text" id="answer2_{ind}">
-              </td>
-            </tr>
-            '''
+def make_task_html_page(count:int = 5):
     return '{}{}'.format(
-        head,
-        body.format(table_body=''.join([row.format(ind=ind) for ind in range(5)]))
+        HTML_HEAD,
+        HTML_BODY.format(table_body=''.join([HTML_BODY_ROW.format(ind=ind) for ind in range(count)]))
     )
 
 @app.get("/makeTask")
@@ -287,27 +215,8 @@ async def getExample(request: Request) -> list:
         user = UserProducer().get_by_session_token(request.cookies[COOKIE_AUTHORIZATION_NAME])
         if user.expired():
             return RedirectResponse('google_login')
-        return [
-    {
-      "id": 100,
-      "word": "be"
-    },
-    {
-      "id": 101,
-      "word": "fall"
-    },
-    {
-      "id": 102,
-      "word": "loose"
-    },
-    {
-      "id": 103,
-      "word": "stand"
-    },
-    {
-      "id": 104,
-      "word": "buy"
-    }]
+        vb = VerbSelector(5,user.id,2)
+        return vb.generate_list()
     except NoDataFoundError:
         return RedirectResponse('google_login')
 
@@ -324,8 +233,16 @@ async def submit_answer(request: Request, answers: List[Answer]):
         user = UserProducer().get_by_session_token(request.cookies[COOKIE_AUTHORIZATION_NAME])
         if user.expired():
             return RedirectResponse('google_login')
-        print(answers)
+        vc = VerbChecker(user.id)
+        fails = []
+        scores = []
+        for ind,ans in enumerate(answers):
+            success, score = vc.check_Verb(ans.id, ans.answer1, ans.answer2)
+            scores.append(score)
+            if not success:
+                fails.append(ind)
         return {"message": "Answers submitted successfully",
-            "mistakes": [2, 4]}
+            "mistakes": fails,
+            "scores":scores}
     except NoDataFoundError:
         return RedirectResponse('google_login')

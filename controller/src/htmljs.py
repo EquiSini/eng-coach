@@ -1,97 +1,95 @@
-from .settings import CLIENT_ID, API_LOCATION, SWAP_TOKEN_ENDPOINT, SUCCESS_ROUTE, ERROR_ROUTE
-
-google_login_javascript_client = f"""<!DOCTYPE html>
-<html itemscope itemtype="http://schema.org/Article">
-<head>
-    <meta charset="UTF-8">
-    <meta name="google-signin-client_id" content="{CLIENT_ID}">
-    <title>Google Login</title><script src="https://apis.google.com/js/platform.js" async defer></script>
-    <body>
-    <div class="g-signin2" data-onsuccess="onSignIn"></div>
-    <script>function onSignIn(googleUser) {{
-  
-  var id_token = googleUser.getAuthResponse().id_token;
-    var xhr = new XMLHttpRequest();
-xhr.open('POST', '{API_LOCATION}{SWAP_TOKEN_ENDPOINT}');
-xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-xhr.setRequestHeader('X-Google-OAuth2-Type', 'client');
-xhr.onload = function() {{
-   console.log('Signed in as: ' + xhr.responseText);
-}};
-xhr.send(id_token);
-}}</script>
-<div><br></div>
-<a href="#" onclick="signOut();">Sign out</a>
-<script>
-  function signOut() {{
-    var auth2 = gapi.auth2.getAuthInstance();
-    auth2.signOut().then(function () {{
-      console.log('User signed out.');
-    }});
-  }}
-</script>
-</body>
-</html>"""
-
-google_login_javascript_server = f"""<!DOCTYPE html>
-<html itemscope itemtype="http://schema.org/Article">
-<head>
-    <meta charset="UTF-8">
-    <title>Google Login</title>
-    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js">
-    </script>
-    <script src="https://apis.google.com/js/client:platform.js?onload=start" async defer>
-    </script>
+HTML_HEAD = '''<!DOCTYPE html>
+<html>
+  <head>
     <script>
-    function start() {{
-      gapi.load('auth2', function() {{
-        auth2 = gapi.auth2.init({{
-          client_id: '{CLIENT_ID}',  
-          // Scopes to request in addition to 'profile' and 'email'
-          // scope: 'additional_scope'
-        }});
-      }});
-    }}
-  </script>
-</head>
-<body>
-<button id="signinButton">Sign in with Google</button>
-<script>
-  $('#signinButton').click(function() {{
-    // signInCallback defined in step 6.
-    auth2.grantOfflineAccess().then(signInCallback);
-  }});
-</script>
-<script>
-function signInCallback(authResult) {{
-  if (authResult['code']) {{
-    // Hide the sign-in button now that the user is authorized, for example:
-    $('#signinButton').attr('style', 'display: none');
-    // Send the code to the server
-    $.ajax({{
-      type: 'POST',
-      url: '{API_LOCATION}{SWAP_TOKEN_ENDPOINT}',
-      // Always include an `X-Requested-With` header in every AJAX request,
-      // to protect against CSRF attacks.
-      headers: {{
-        'X-Requested-With': 'XMLHttpRequest',
-        'X-Google-OAuth2-Type': 'server'
-      }},
-      contentType: 'application/octet-stream; charset=utf-8',
-      success: function(result) {{
-          location.href = '{API_LOCATION}{SUCCESS_ROUTE}'
-        // Handle or verify the server response.
-      }},
-      processData: false,
-      data: authResult['code']
-    }});
-  }} else {{
-    // There was an error.
-    console.log(e)
-    location.href = '{API_LOCATION}{ERROR_ROUTE}'
-  }}
-}}
-</script>
-</body>
-</html>"""
+        let ids = [];
+        answers1 = [];
+        answers2 = [];
+        preScores = [];
+
+      function getExampleValues() {
+        // Fetch the example values from the /getExample endpoint
+        fetch("/getExample")
+          .then(response => response.json())
+          .then(data => {
+            // Populate the first column of edit fields with the values from the response
+            ids = [];
+            for (let i = 0; i < 5; i++) {
+                ids.push(data[i].id);
+                answers1.push(data[i].past);
+                answers2.push(data[i].past_participle);
+                preScores.push(data[i].score);
+                document.getElementById(`example_${i}`).value = data[i].verb;
+            }
+          });
+      }
+
+      async function submitForm() {
+        // Collect the answers from the form
+        let answers = [];
+        for (let i = 0; i < 5; i++) {
+          let answer1 = document.getElementById("answer1_" + i).value;
+          let answer2 = document.getElementById("answer2_" + i).value;
+          let id = ids[i];
+          answers.push({ id, answer1, answer2 });
+        }
+
+        // Send the answers to the API
+        let response = await fetch("/submitAnswer", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(answers),
+        });
+        let data = await response.json();
+        
+        for (let i = 0; i < 5; i++) {
+          sc = (data.scores[i] * 100);
+          delta = sc-(preScores[i] * 100);
+          sign = delta>0 ? "+" : "";
+          document.getElementById(`example_${i}`).value += " " +sc.toFixed(1)+"% ("+sign+delta.toFixed(1)+"%)";
+          // Block the edit fields
+          document.getElementById("answer1_" + i).readOnly = true;
+          document.getElementById("answer2_" + i).readOnly = true;
+        }
+        // Check the response for errors
+        if (data.mistakes.length > 0) {
+          for (let i = 0; i < data.mistakes.length; i++) {
+            misId = data.mistakes[i];
+            document.getElementById("row_" + misId).style.backgroundColor = "red";
+            document.getElementById("answer1_" + misId).value += " (" + answers1[misId] + ")"; 
+            document.getElementById("answer2_" + misId).value += " (" + answers2[misId] + ")"; 
+          }
+        }
+        document.getElementById("submitButton").style.display = "none";
+        document.getElementById("nextButton").style.display = "inline-block";
+      }
+      function next() {
+        location.reload();
+      }
+    </script>
+  </head>
+'''
+HTML_BODY = '''  <body onload="getExampleValues()">
+    <form>
+      <table>
+        <tbody>
+          {table_body}
+        </tbody>
+      </table>
+      <button type="button" id="submitButton" onclick="submitForm()">Submit</button>
+      <input type="button" value="Next" id="nextButton" style="display: none" onclick="next()">
+    </form>
+  </body>
+</html>'''
+HTML_BODY_ROW = '''<tr id="row_{ind}">
+              <td>
+                <input type="text" id="example_{ind}" disabled>
+              </td>
+              <td>
+                <input type="text" id="answer1_{ind}">
+              </td>
+              <td>
+                <input type="text" id="answer2_{ind}">
+              </td>
+            </tr>
+            '''
