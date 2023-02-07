@@ -20,6 +20,12 @@ HTML_HEAD = '''<!DOCTYPE html>
                 answers2.push(data[i].past_participle);
                 preScores.push(data[i].score);
                 document.getElementById(`example_${i}`).value = data[i].verb;
+                if (data[i].past.includes("/")) {
+                  document.getElementById("answer1_" + i).value = "/";
+                }
+                if (data[i].past_participle.includes("/")) {
+                  document.getElementById("answer2_" + i).value = "/";
+                }
             }
           });
       }
