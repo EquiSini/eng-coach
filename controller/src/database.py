@@ -1,8 +1,8 @@
 '''Database connector class. Singleton with pool.'''
 from psycopg2 import pool
+#TODO use asyncpg instead psycopg2
 
 from .settings import DATABASE
-
 
 class DatabaseConnection:
     '''Connector to PostgreSQL'''
@@ -12,18 +12,17 @@ class DatabaseConnection:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             # TODO level
-            print("Connecting to {user}@{host}/{db} with {pool} poolsize".format(
-                user=DATABASE.get(connection_name, '{}').get('LOGIN', ''),
-                host=DATABASE.get(connection_name, '{}').get('HOST', ''),
-                db=DATABASE.get(connection_name, '{}').get('NAME', ''),
-                pool=DATABASE.get('poolSize', 5),
-            ))
+            user=DATABASE.get(connection_name, '{}').get('LOGIN', '')
+            host=DATABASE.get(connection_name, '{}').get('HOST', '')
+            database=DATABASE.get(connection_name, '{}').get('NAME', '')
+            pool_size=DATABASE.get('poolSize', 5)
+            print(f"Connecting to {user}@{host}/{database} with {pool_size} poolsize")
             cls._pool = pool.SimpleConnectionPool(
                 1,
-                DATABASE.get('poolSize', 5),
-                host=DATABASE.get(connection_name, '{}').get('HOST', ''),
-                database=DATABASE.get(connection_name, '{}').get('NAME', ''),
-                user=DATABASE.get(connection_name, '{}').get('LOGIN', ''),
+                pool_size,
+                host=host,
+                database=database,
+                user=user,
                 password=DATABASE.get(connection_name, '{}').get('PASSWORD', '')
             )
         return cls._instance

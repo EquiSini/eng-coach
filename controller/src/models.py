@@ -2,7 +2,7 @@
 import datetime
 import uuid
 import numpy as np
-from pydantic import BaseModel
+from pydantic import BaseModel # pylint: disable=no-name-in-module
 from .database import DatabaseConnection
 
 
@@ -16,7 +16,7 @@ GET_USER_BY_SESSION_QUERY = "SELECT id, username, email, auth_id, picture, sessi
 GET_USER_VERBS_SCORE = """select iv.id as verb_id, ivus.score from irregular_verbs iv 
 left outer join irregular_verbs_user_score ivus on iv.id=ivus.verb_id and ivus.user_id = %s
 where verb_level <= %s"""
-GET_USER_VERB_SCORE_FOR_CHECK = """select iv.id as verb_id, 
+GET_USER_VERB_SCORE_FOR_CHECK = """select iv.id as verb_id,
 iv.verb, 
 iv.past, 
 iv.past_participle, 
@@ -24,6 +24,11 @@ ivus.score
 from irregular_verbs iv 
 left outer join irregular_verbs_user_score ivus on iv.id=ivus.verb_id and ivus.user_id = %s
 where iv.id = %s"""
+GET_USER_VERB_SCORES = """select iv.verb, 
+ivus.score 
+from irregular_verbs iv 
+left outer join irregular_verbs_user_score ivus on iv.id=ivus.verb_id and ivus.user_id = %s
+ORDER BY case when ivus.score is null then 1 else 0 end, ivus.score DESC"""
 UPDATE_USER_VERB_SCORE = '''
 INSERT INTO irregular_verbs_user_score (user_id, verb_id, score) 
 VALUES (%s, %s, %s)
@@ -66,6 +71,22 @@ class NoDataFoundError(Exception):
     def __str__(self):
         return self.message
 
+class UserScores:
+    '''User scores for irregular verbs'''
+    def __init__(self, user_id: int) -> None:
+        self.user_id = user_id
+
+    def getScores(self):
+        verbs = {}
+        with DatabaseConnection() as db:
+            cursor = db.connection.cursor()
+            cursor.execute(GET_USER_VERB_SCORES,(
+                self.user_id,))
+            results = cursor.fetchall()
+            for result in results:
+                verbs[result[0]] = 0.5 if result[1] is None else result[1]
+        return verbs
+
 class VerbSelector:
     '''Selector irregular verbs for user'''
 
@@ -75,6 +96,7 @@ class VerbSelector:
         self.level = level
 
     def generate_list(self):
+        '''Generate list of irregular vervs'''
         with DatabaseConnection() as db:
             cursor = db.connection.cursor()
             cursor.execute(GET_USER_VERBS_SCORE,(
@@ -87,7 +109,7 @@ class VerbSelector:
             for verb_id, score in results:
                 prob = float(1-score) if score is not None else 0.5
                 ids.append(verb_id)
-                scores.append(prob)
+                scores.append(prob**2)
                 probs.append(1-prob)
             scores_norm = scores / np.sum(scores)
             cursor.close()
@@ -98,7 +120,6 @@ class VerbSelector:
                 cursor = db.connection.cursor()
                 cursor.execute(GET_IRREGULAR_VERB,(int(ids[ind]),))
                 result = cursor.fetchone()
-                print(result)
                 verbs.append(IrregularVerb(
                     id=result[0],
                     verb=result[1],
@@ -125,7 +146,8 @@ class VerbChecker():
                 verb_id))
             result = cursor.fetchone()
             score = float(result[4]) if result[4] is not None else 0.5
-            if result[2].strip() == past.strip() and result[3].strip() == past_participle.strip():
+            if (result[2].strip().upper() == past.strip().upper() 
+                and result[3].strip().upper() == past_participle.strip().upper()):
                 rez = True
             cursor.close()
             cursor = db.connection.cursor()
@@ -220,6 +242,17 @@ class UserProducer:
             picture=result[4],
             session_token=result[5],
             expire=result[6])
+
+    @classmethod
+    def get_no_user(cls) -> User:
+        '''Generator no user'''
+        return User(id = -1,
+            username='NO_USER',
+            email='NO_USER',
+            picture='NO_USER',
+            auth_id='NO_USER',
+            session_token='NO_USER',
+            expire=datetime.datetime.now())
 
 
     @classmethod

@@ -5,17 +5,14 @@ COOKIE_AUTHORIZATION_NAME = "SESSION_TOKEN"
 COOKIE_DOMAIN = "localhost"
 
 PROTOCOL = "http://"
-FULL_HOST_NAME = "localhost"
-PORT_NUMBER = 8000
+FULL_HOST_NAME = "0.0.0.0"
+PORT_NUMBER = 8080
 
 CLIENT_ID = os.environ.get('CLIENT_ID')
 CLIENT_SECRETS_JSON = "src/client_secret_google.json"
 SCOPES = ["https://www.googleapis.com/auth/userinfo.email",
 'https://www.googleapis.com/auth/userinfo.profile']
-API_SERVICE_NAME = 'drive'
-API_VERSION = 'v2'
 
-API_LOCATION = f"{PROTOCOL}{FULL_HOST_NAME}:{PORT_NUMBER}"
 SWAP_TOKEN_ENDPOINT = "/swap_token"
 SUCCESS_ROUTE = "/users/me"
 ERROR_ROUTE = "/login_error"
@@ -26,6 +23,8 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 COUNT_IRREGULAR_VERBS_LEVEL_1 = 50
 COUNT_IRREGULAR_VERBS_LEVEL_2 = 135
+
+AUTH_REDIRECT_URL_COOKIE = "auth_redirect_url"
 
 
 
