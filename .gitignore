@@ -136,3 +136,4 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+controller/src/client_secret_google.json
