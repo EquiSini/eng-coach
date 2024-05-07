@@ -40,6 +40,7 @@ def authorize():
     # value doesn't match an authorized URI, you will get a 'redirect_uri_mismatch'
     # error.
     #   flow.redirect_uri = flask.url_for('oauth2callback', _external=True)
+    #TODO make universal url
     flow.redirect_uri = 'http://localhost:8080/googleOauth2callback'#request.url_for('googleOauth2callback')#'http://localhost:8080'
 
     authorization_url, state = flow.authorization_url(
@@ -50,12 +51,6 @@ def authorize():
       include_granted_scopes='true')
 
     print("state:", state)
-    # Store the state so the callback can verify the auth server response.
-    # app.session['state'] = state
-    # response = RedirectResponse(authorization_url)
-    # response.set_cookie(key=AUTH_REDIRECT_URL_COOKIE,
-    #     value=user.session_token,
-    #     domain=COOKIE_DOMAIN)
     return RedirectResponse(authorization_url)
 
 
@@ -74,12 +69,10 @@ async def get_user_info(credentials):
 @app.get("/googleOauth2callback")
 async def oauth2callback(request:Request, response: Response):
     '''Function for google oauth callback. If succseed redirect to previous point.'''
-    # state = request.cookies["state"]
     print(request.cookies)
     flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
         'src/client_secret_google.json',
-        scopes=SCOPES) #,
-        #state=state)
+        scopes=SCOPES)
     flow.redirect_uri = 'http://localhost:8080/googleOauth2callback'
 
     authorization_response = request.url._url # pylint: disable=W0212
@@ -134,6 +127,7 @@ def make_auth_redirect_response(request: Request) -> RedirectResponse:
         value=request.url._url, domain=COOKIE_DOMAIN) # pylint: disable=W0212
     return response
 
+#TODO add revoke
 # @app.get('/revoke') To add revoke need to store credentials in base
 # def revoke():
 #   if 'credentials' not in flask.session:
@@ -202,12 +196,12 @@ def custom_openapi():
 app.openapi = custom_openapi
 
 
-@app.get("/users/{user_id}", response_model=User, responses={404: {"model": Message}})
-async def read_user(request: Request, request_user_id: int) -> User:
-    """Get a user by id"""
-    if authentificate(request).id == -1:
-        return make_auth_redirect_response(request)
-    return UserProducer().get_by_id(request_user_id)
+# @app.get("/users/{user_id}", response_model=User, responses={404: {"model": Message}})
+# async def read_user(request: Request, request_user_id: int) -> User:
+#     """Get a user by id"""
+#     if authentificate(request).id == -1:
+#         return make_auth_redirect_response(request)
+#     return UserProducer().get_by_id(request_user_id)
 
 @app.get("/profile", response_model=User, responses={404: {"model": Message}})
 async def user_profile(request: Request) -> User:

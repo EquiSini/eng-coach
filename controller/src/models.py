@@ -97,6 +97,7 @@ class VerbSelector:
 
     def generate_list(self):
         '''Generate list of irregular vervs'''
+        #TODO add cacheing
         with DatabaseConnection() as db:
             cursor = db.connection.cursor()
             cursor.execute(GET_USER_VERBS_SCORE,(
@@ -116,7 +117,10 @@ class VerbSelector:
             db.connection.close()
         verbs = list()
         with DatabaseConnection() as db:
-            for ind in np.random.choice([i for i in range(len(ids))], self.verbs_count, False, scores_norm):
+            for ind in np.random.choice([i for i in range(len(ids))], 
+                                        size=self.verbs_count, 
+                                        replace=False, 
+                                        p=scores_norm):
                 cursor = db.connection.cursor()
                 cursor.execute(GET_IRREGULAR_VERB,(int(ids[ind]),))
                 result = cursor.fetchone()
