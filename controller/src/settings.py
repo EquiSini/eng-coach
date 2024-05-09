@@ -9,7 +9,7 @@ FULL_HOST_NAME = "0.0.0.0"
 PORT_NUMBER = 8080
 
 CLIENT_ID = os.environ.get('CLIENT_ID')
-CLIENT_SECRETS_JSON = "src/client_secret_google.json"
+CLIENT_SECRETS_JSON = "controller/client_secret_google.json"
 SCOPES = ["https://www.googleapis.com/auth/userinfo.email",
 'https://www.googleapis.com/auth/userinfo.profile']
 
