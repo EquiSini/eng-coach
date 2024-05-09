@@ -41,7 +41,7 @@ def authorize():
     # error.
     #   flow.redirect_uri = flask.url_for('oauth2callback', _external=True)
     #TODO make universal url
-    flow.redirect_uri = 'http://localhost:8080/googleOauth2callback'#request.url_for('googleOauth2callback')#'http://localhost:8080'
+    flow.redirect_uri = 'http://localhost/api/googleOauth2callback'#request.url_for('googleOauth2callback')#'http://localhost:8080'
 
     authorization_url, state = flow.authorization_url(
       # Enable offline access so that you can refresh an access token without
@@ -73,7 +73,7 @@ async def oauth2callback(request:Request, response: Response):
     flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
         'src/client_secret_google.json',
         scopes=SCOPES)
-    flow.redirect_uri = 'http://localhost:8080/googleOauth2callback'
+    flow.redirect_uri = 'http://localhost/api/googleOauth2callback'
 
     authorization_response = request.url._url # pylint: disable=W0212
     flow.fetch_token(authorization_response=authorization_response)
@@ -102,11 +102,53 @@ async def oauth2callback(request:Request, response: Response):
         user.expire = credentials.expiry
         UserProducer.update(user)
     response = RedirectResponse(url="/")
-    response.set_cookie(key=COOKIE_AUTHORIZATION_NAME,
+    response.set_cookie(
+        key=COOKIE_AUTHORIZATION_NAME,
         value=user.session_token,
         domain=COOKIE_DOMAIN)
     return response
 
+@app.get("/frontendOauth2callback")
+async def oauth2callback(request:Request, response: Response):
+    '''require credentials'''
+    print(request.cookies)
+    # flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
+        # 'src/client_secret_google.json',
+        # scopes=SCOPES)
+    # flow.redirect_uri = 'http://localhost/api/googleOauth2callback'
+# 
+    # authorization_response = request.url._url # pylint: disable=W0212
+    # flow.fetch_token(authorization_response=authorization_response)
+
+    # Store the credentials in the session.
+    credentials = request.credentials
+
+    user_info = await get_user_info(credentials)
+    user_id = UserProducer().get_id_by_auth_id(user_info['id'])
+    if user_id == -1:
+        #New user
+        user = UserProducer.create(
+            username=user_info['name'],
+            email=user_info['email'],
+            auth_id=user_info['id'],
+            picture=user_info['picture'],
+            expire=credentials.expiry)
+    else:
+        user = UserProducer.get_by_id(user_id=user_id)
+        user.username = user_info['name']
+        user.email = user_info['email']
+        user.auth_id = user_info['id']
+        user.picture = user_info['picture']
+        if user.session_token is None:
+            user.session_token = str(uuid.uuid4())
+        user.expire = credentials.expiry
+        UserProducer.update(user)
+    response = RedirectResponse(url="/")
+    response.set_cookie(
+        key=COOKIE_AUTHORIZATION_NAME,
+        value=user.session_token,
+        domain=COOKIE_DOMAIN)
+    return response
 
 def authentificate(request: Request) -> User:
     """Authentificate user. Return -1 if user not founded or he haven't cookie"""
@@ -149,10 +191,16 @@ def make_auth_redirect_response(request: Request) -> RedirectResponse:
 
 # Pages:
 
-@app.get("/")
-async def homepage():
+# @app.get("/")
+# async def homepage():
+#     '''Some homepage stub'''
+#     return 
+
+
+@app.get("/test")
+async def homeapi():
     '''Some homepage stub'''
-    return "Welcome to eng coach!"
+    return {"ping-pong": True}
 
 def make_task_html_page(count:int = 5):
     '''Generator html page for makeTask'''
@@ -212,7 +260,7 @@ async def user_profile(request: Request) -> User:
     return user
 
 
-@app.get("/getScores")
+@app.get("/scores")
 async def get_scores(request: Request):
     '''Return JSON with user irregular_verb scores'''
     user = authentificate(request)
@@ -220,16 +268,16 @@ async def get_scores(request: Request):
         return make_auth_redirect_response(request)
     return UserScores(user.id).getScores()
 
-@app.get("/getExample")
+@app.get("/example")
 async def get_example(request: Request) -> list:
     '''Randomly based on user verb scores makes example. Returns list of IrregulaVerb'''
     user = authentificate(request)
-    if  user.id == -1:
+    if user.id == -1:
         return make_auth_redirect_response(request)
-    return VerbSelector(5,user.id,2).generate_list()
+    return VerbSelector(5, user.id, 2).generate_list()
 
 
-@app.post("/submitAnswer")
+@app.post("/example/submit")
 async def submit_answer(request: Request, answers: List[Answer]):
     '''Checks user answer. Returns mistakes and scores lists.'''
     user = authentificate(request)
@@ -246,6 +294,8 @@ async def submit_answer(request: Request, answers: List[Answer]):
     return {"message": "Answers submitted successfully",
         "mistakes": fails,
         "scores":scores}
+
+
 
 def main():
     '''Main function'''

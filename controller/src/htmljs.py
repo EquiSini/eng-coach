@@ -8,8 +8,7 @@ HTML_HEAD = '''<!DOCTYPE html>
         preScores = [];
 
       function getExampleValues() {
-        // Fetch the example values from the /getExample endpoint
-        fetch("/getExample")
+        fetch("/api/example")
           .then(response => response.json())
           .then(data => {
             // Populate the first column of edit fields with the values from the response
@@ -41,7 +40,7 @@ HTML_HEAD = '''<!DOCTYPE html>
         }
 
         // Send the answers to the API
-        let response = await fetch("/submitAnswer", {
+        let response = await fetch("/api/example/submit", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(answers),
