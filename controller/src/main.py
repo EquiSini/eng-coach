@@ -71,7 +71,7 @@ async def oauth2callback(request:Request, response: Response):
     '''Function for google oauth callback. If succseed redirect to previous point.'''
     print(request.cookies)
     flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
-        'src/client_secret_google.json',
+        'controller/client_secret_google.json',
         scopes=SCOPES)
     flow.redirect_uri = 'http://localhost/api/googleOauth2callback'
 
