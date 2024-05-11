@@ -10,6 +10,8 @@ import uvicorn
 from googleapiclient.discovery import build, HttpError, Resource
 # import google.oauth2.credentials
 import google_auth_oauthlib.flow
+import logging
+import sys
 
 # Import the User model and the DatabaseConnection class
 from .models import User, UserProducer, NoDataFoundError, VerbSelector, VerbChecker, UserScores
@@ -21,6 +23,23 @@ from .htmljs import HTML_HEAD, HTML_BODY, HTML_BODY_ROW
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 os.environ['OAUTHLIB_RELAX_TOKEN_SCOPE'] = '1'
 DATE_TIME_ZONE_FORMAT = '%Y-%m-%dT%H:%M:%S.%fZ'
+
+
+def setup_custom_logger(name):
+    formatter = logging.Formatter(fmt='%(asctime)s %(levelname)-8s %(message)s',
+                                  datefmt='%Y-%m-%d %H:%M:%S')
+    handler = logging.FileHandler('log.txt', mode='w')
+    handler.setFormatter(formatter)
+    screen_handler = logging.StreamHandler(stream=sys.stdout)
+    screen_handler.setFormatter(formatter)
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.DEBUG)
+    logger.addHandler(handler)
+    logger.addHandler(screen_handler)
+    return logger
+
+
+LOGGER = setup_custom_logger('Controller')
 
 # app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 # Define the app and the endpoints
@@ -107,6 +126,15 @@ async def oauth2callback(request:Request, response: Response):
         value=user.session_token,
         domain=COOKIE_DOMAIN)
     return response
+
+
+@app.get("/yandexOauth2callback")
+async def yandexOauth2callback(request:Request, response: Response):
+    LOGGER.info('asdas')
+    LOGGER.info(request)
+    LOGGER.info(type(request))
+
+    LOGGER.info(request)
 
 @app.get("/frontendOauth2callback")
 async def oauth2callback(request:Request, response: Response):
