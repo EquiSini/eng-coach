@@ -9,6 +9,14 @@ import { Component } from '@angular/core';
 })
 export class LoginComponent {
 
+  myScriptElement: HTMLScriptElement;
+
+  constructor() {
+    this.myScriptElement = document.createElement("script");
+    this.myScriptElement.src = "frontend/src/assets/yandexOauth.js";
+    document.body.appendChild(this.myScriptElement);
+  }
+
 
 
 
