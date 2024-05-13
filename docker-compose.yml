@@ -23,6 +23,8 @@ services:
       - "4200:4200"
     environment:
       - BACKEND_URL=http://backend:8080/api
+      - CLIENT_YANDEX_ID=${CLIENT_YANDEX_ID}
+      - CLIENT_GOOGLE_ID=${CLIENT_GOOGLE_ID}
     volumes:
       - ./frontend/src:/usr/src/app/src
     depends_on:

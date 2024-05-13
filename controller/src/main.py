@@ -28,7 +28,7 @@ DATE_TIME_ZONE_FORMAT = '%Y-%m-%dT%H:%M:%S.%fZ'
 def setup_custom_logger(name):
     formatter = logging.Formatter(fmt='%(asctime)s %(levelname)-8s %(message)s',
                                   datefmt='%Y-%m-%d %H:%M:%S')
-    handler = logging.FileHandler('log.txt', mode='w')
+    handler = logging.FileHandler('controller/controller.log', mode='a')
     handler.setFormatter(formatter)
     screen_handler = logging.StreamHandler(stream=sys.stdout)
     screen_handler.setFormatter(formatter)
@@ -40,10 +40,12 @@ def setup_custom_logger(name):
 
 
 LOGGER = setup_custom_logger('Controller')
+# LOGGER = logging.getLogger('Controller')
+
 
 # app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 # Define the app and the endpoints
-app = FastAPI()
+app = FastAPI(debug=True)
 
 #TODO split files and add routes https://fastapi.tiangolo.com/tutorial/bigger-applications/
 #TODO add some pytests
@@ -86,21 +88,28 @@ async def get_user_info(credentials):
             detail=error._get_reason()) from error # pylint: disable=W0212
 
 @app.get("/googleOauth2callback")
-async def oauth2callback(request:Request, response: Response):
+async def googleOauth2callback(request:Request, response: Response):
     '''Function for google oauth callback. If succseed redirect to previous point.'''
-    print(request.cookies)
+    LOGGER.info(request.cookies)
+    LOGGER.info(request.body)
+    LOGGER.info(request.base_url)
+    LOGGER.info(request.url)
+    LOGGER.info(request.url._url)
+    LOGGER.info(request.headers)
     flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
         CLIENT_SECRETS_JSON,
         scopes=SCOPES)
     flow.redirect_uri = 'http://localhost/api/googleOauth2callback'
 
     authorization_response = request.url._url # pylint: disable=W0212
+    LOGGER.info(request.url._url)
     flow.fetch_token(authorization_response=authorization_response)
 
     # Store the credentials in the session.
     credentials = flow.credentials
 
     user_info = await get_user_info(credentials)
+    # user_info = await get_user_info(request.cookies.get('SESSION_TOKEN'))
     user_id = UserProducer().get_id_by_auth_id(user_info['id'])
     if user_id == -1:
         #New user
@@ -129,12 +138,15 @@ async def oauth2callback(request:Request, response: Response):
 
 
 @app.get("/yandexOauth2callback")
-async def yandexOauth2callback(request:Request, response: Response):
+async def yandexOauth2callback(
+        request:Request,
+        response: Response):
     LOGGER.info('asdas')
     LOGGER.info(request)
+    LOGGER.info(request.body)
+    LOGGER.info(request.cookies)
     LOGGER.info(type(request))
-
-    LOGGER.info(request)
+    return request.body
 
 @app.get("/frontendOauth2callback")
 async def oauth2callback(request:Request, response: Response):

@@ -8,4 +8,10 @@ RUN npm install -g @angular/cli
 
 RUN npm install
 
-CMD ["ng", "serve", "--host", "0.0.0.0"]
+ARG CLIENT_GOOGLE_ID
+ARG CLIENT_YANDEX_ID
+ARG BACKEND_URL
+
+EXPOSE 4200
+
+CMD ["ng", "serve", "--host", "0.0.0.0", "--poll", "1000"]
