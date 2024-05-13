@@ -2,12 +2,13 @@
 import os
 import uuid
 from typing import List
-from fastapi import FastAPI, Request, Response, HTTPException
+from fastapi import Depends, FastAPI, Request, Response, HTTPException
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import RedirectResponse, HTMLResponse
-from pydantic import BaseModel # pylint: disable=no-name-in-module
-import uvicorn
-from googleapiclient.discovery import build, HttpError, Resource
+from fastapi.security import OAuth2PasswordBearer
+from pydantic import BaseModel  # pylint: disable=no-name-in-module
+import uvicorn  # type: ignore
+from googleapiclient.discovery import build, HttpError, Resource  # type:ignore
 # import google.oauth2.credentials
 import google_auth_oauthlib.flow
 import logging
@@ -18,6 +19,7 @@ from .models import User, UserProducer, NoDataFoundError, VerbSelector, VerbChec
 from .settings import CLIENT_SECRETS_JSON, SCOPES, FULL_HOST_NAME, PORT_NUMBER
 from .settings import COOKIE_AUTHORIZATION_NAME, COOKIE_DOMAIN, AUTH_REDIRECT_URL_COOKIE
 from .htmljs import HTML_HEAD, HTML_BODY, HTML_BODY_ROW
+from .api_model import LoginRequest
 
 
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
@@ -46,6 +48,8 @@ LOGGER = setup_custom_logger('Controller')
 # app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 # Define the app and the endpoints
 app = FastAPI(debug=True)
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
 
 #TODO split files and add routes https://fastapi.tiangolo.com/tutorial/bigger-applications/
 #TODO add some pytests
@@ -90,12 +94,6 @@ async def get_user_info(credentials):
 @app.get("/googleOauth2callback")
 async def googleOauth2callback(request:Request, response: Response):
     '''Function for google oauth callback. If succseed redirect to previous point.'''
-    LOGGER.info(request.cookies)
-    LOGGER.info(request.body)
-    LOGGER.info(request.base_url)
-    LOGGER.info(request.url)
-    LOGGER.info(request.url._url)
-    LOGGER.info(request.headers)
     flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
         CLIENT_SECRETS_JSON,
         scopes=SCOPES)
@@ -136,34 +134,20 @@ async def googleOauth2callback(request:Request, response: Response):
         domain=COOKIE_DOMAIN)
     return response
 
+def get_google_info(code: str):
+    flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
+        CLIENT_SECRETS_JSON,
+        scopes=SCOPES)
+    flow.redirect_uri = 'http://localhost/api/googleOauth2callback'
 
-@app.get("/yandexOauth2callback")
-async def yandexOauth2callback(
-        request:Request,
-        response: Response):
-    LOGGER.info('asdas')
-    LOGGER.info(request)
-    LOGGER.info(request.body)
-    LOGGER.info(request.cookies)
-    LOGGER.info(type(request))
-    return request.body
-
-@app.get("/frontendOauth2callback")
-async def oauth2callback(request:Request, response: Response):
-    '''require credentials'''
-    print(request.cookies)
-    # flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
-        # 'src/client_secret_google.json',
-        # scopes=SCOPES)
-    # flow.redirect_uri = 'http://localhost/api/googleOauth2callback'
-# 
-    # authorization_response = request.url._url # pylint: disable=W0212
-    # flow.fetch_token(authorization_response=authorization_response)
+    authorization_response = request.url._url # pylint: disable=W0212
+    flow.fetch_token(authorization_response=authorization_response)
 
     # Store the credentials in the session.
-    credentials = request.credentials
+    credentials = flow.credentials
 
     user_info = await get_user_info(credentials)
+    # user_info = await get_user_info(request.cookies.get('SESSION_TOKEN'))
     user_id = UserProducer().get_id_by_auth_id(user_info['id'])
     if user_id == -1:
         #New user
@@ -189,6 +173,19 @@ async def oauth2callback(request:Request, response: Response):
         value=user.session_token,
         domain=COOKIE_DOMAIN)
     return response
+
+@app.post("/login")
+async def login(request: LoginRequest):
+    '''require credentials'''
+    
+
+    # Store the credentials in the session.
+    return {
+        "jwt-token": "aaa",
+        "username": "username",
+        "picture": "picture",
+    }
+
 
 def authentificate(request: Request) -> User:
     """Authentificate user. Return -1 if user not founded or he haven't cookie"""
@@ -238,9 +235,11 @@ def make_auth_redirect_response(request: Request) -> RedirectResponse:
 
 
 @app.get("/test")
-async def homeapi():
+async def testapi(token: str = Depends(oauth2_scheme)):
     '''Some homepage stub'''
-    return {"ping-pong": True}
+    LOGGER.info(token)
+    return {"ping-pong": True,
+            "token": token}
 
 def make_task_html_page(count:int = 5):
     '''Generator html page for makeTask'''

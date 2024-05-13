@@ -8,10 +8,13 @@ PROTOCOL = "http://"
 FULL_HOST_NAME = "0.0.0.0"
 PORT_NUMBER = 8080
 
-CLIENT_ID = os.environ.get('CLIENT_ID')
+GOOGLE_CLIENT_ID = os.environ.get('CLIENT_GOOGLE_ID')
+YANDEX_CLIENT_ID = os.environ.get('CLIENT_YANDEX_ID')
+JWT_SECRET = os.environ.get('JWT_SECRET')
 CLIENT_SECRETS_JSON = "controller/client_secret_google.json"
-SCOPES = ["https://www.googleapis.com/auth/userinfo.email",
-'https://www.googleapis.com/auth/userinfo.profile']
+SCOPES = [
+    "https://www.googleapis.com/auth/userinfo.email",
+    'https://www.googleapis.com/auth/userinfo.profile']
 
 SWAP_TOKEN_ENDPOINT = "/swap_token"
 SUCCESS_ROUTE = "/users/me"
@@ -25,8 +28,6 @@ COUNT_IRREGULAR_VERBS_LEVEL_1 = 50
 COUNT_IRREGULAR_VERBS_LEVEL_2 = 135
 
 AUTH_REDIRECT_URL_COOKIE = "auth_redirect_url"
-
-
 
 DATABASE = {
     'default': {

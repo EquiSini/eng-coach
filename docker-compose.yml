@@ -12,6 +12,10 @@ services:
       - DB_NAME=${POSTGRES_DB}
       - DEBUG=True
       - DB_HOST=postgres
+      - CLIENT_YANDEX_ID=${CLIENT_YANDEX_ID}
+      - CLIENT_YANDEX_ID=${CLIENT_YANDEX_ID}
+      - CLIENT_GOOGLE_ID=${CLIENT_GOOGLE_ID}
+      - CLIENT_GOOGLE_ID=${CLIENT_GOOGLE_ID}
     volumes:
       - ./controller/src:/app/controller
     depends_on:
