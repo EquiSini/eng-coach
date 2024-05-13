@@ -181,7 +181,8 @@ class UserProducer:
             auth_id: str, picture: str,
             expire: datetime.datetime) -> User:
         """Create a new user"""
-        session_token: str = str(uuid.uuid4())
+        # session_token: str = str(uuid.uuid4())
+        session_token: str = auth_id
         with DatabaseConnection() as db:
             cursor = db.connection.cursor()
             cursor.execute(INSERT_USER_QUERY, (username, email, auth_id, picture, session_token,expire.strftime('%Y-%m-%d %H:%M:%S.%f %Z')))
