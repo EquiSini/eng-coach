@@ -1,30 +1,58 @@
 # Import the necessary modules
+import datetime
 import os
 import uuid
 from typing import List
-from fastapi import FastAPI, Request, Response, HTTPException
+from fastapi import Depends, FastAPI, Request, Response, HTTPException, status
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import RedirectResponse, HTMLResponse
-from pydantic import BaseModel # pylint: disable=no-name-in-module
-import uvicorn
-from googleapiclient.discovery import build, HttpError, Resource
+from fastapi.security import OAuth2PasswordBearer
+from pydantic import BaseModel  # pylint: disable=no-name-in-module
+import uvicorn  # type: ignore
+from googleapiclient.discovery import build, HttpError, Resource  # type:ignore
 # import google.oauth2.credentials
 import google_auth_oauthlib.flow
+import jwt  # type: ignore
+import logging
+import sys
 
 # Import the User model and the DatabaseConnection class
 from .models import User, UserProducer, NoDataFoundError, VerbSelector, VerbChecker, UserScores
-from .settings import CLIENT_SECRETS_JSON, SCOPES, FULL_HOST_NAME, PORT_NUMBER
+from .settings import CLIENT_SECRETS_JSON, JWT_SECRET, SCOPES, FULL_HOST_NAME, PORT_NUMBER
 from .settings import COOKIE_AUTHORIZATION_NAME, COOKIE_DOMAIN, AUTH_REDIRECT_URL_COOKIE
 from .htmljs import HTML_HEAD, HTML_BODY, HTML_BODY_ROW
+from .login.api_model import LoginRequest, OauthService, UserInfo
+from .login.oauth import YandexOauthGetter
 
 
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 os.environ['OAUTHLIB_RELAX_TOKEN_SCOPE'] = '1'
 DATE_TIME_ZONE_FORMAT = '%Y-%m-%dT%H:%M:%S.%fZ'
 
+
+def setup_custom_logger(name):
+    formatter = logging.Formatter(fmt='%(asctime)s %(levelname)-8s %(message)s',
+                                  datefmt='%Y-%m-%d %H:%M:%S')
+    handler = logging.FileHandler('controller/controller.log', mode='a')
+    handler.setFormatter(formatter)
+    screen_handler = logging.StreamHandler(stream=sys.stdout)
+    screen_handler.setFormatter(formatter)
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.DEBUG)
+    logger.addHandler(handler)
+    logger.addHandler(screen_handler)
+    return logger
+
+
+LOGGER = setup_custom_logger('Controller')
+# LOGGER = logging.getLogger('Controller')
+
+
 # app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 # Define the app and the endpoints
-app = FastAPI()
+app = FastAPI(debug=True)
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=True)
 
 #TODO split files and add routes https://fastapi.tiangolo.com/tutorial/bigger-applications/
 #TODO add some pytests
@@ -67,21 +95,22 @@ async def get_user_info(credentials):
             detail=error._get_reason()) from error # pylint: disable=W0212
 
 @app.get("/googleOauth2callback")
-async def oauth2callback(request:Request, response: Response):
+async def googleOauth2callback(request:Request, response: Response):
     '''Function for google oauth callback. If succseed redirect to previous point.'''
-    print(request.cookies)
     flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
         CLIENT_SECRETS_JSON,
         scopes=SCOPES)
     flow.redirect_uri = 'http://localhost/api/googleOauth2callback'
 
     authorization_response = request.url._url # pylint: disable=W0212
+    LOGGER.info(request.url._url)
     flow.fetch_token(authorization_response=authorization_response)
 
     # Store the credentials in the session.
     credentials = flow.credentials
 
     user_info = await get_user_info(credentials)
+    # user_info = await get_user_info(request.cookies.get('SESSION_TOKEN'))
     user_id = UserProducer().get_id_by_auth_id(user_info['id'])
     if user_id == -1:
         #New user
@@ -108,47 +137,35 @@ async def oauth2callback(request:Request, response: Response):
         domain=COOKIE_DOMAIN)
     return response
 
-@app.get("/frontendOauth2callback")
-async def oauth2callback(request:Request, response: Response):
+
+@app.post("/login")
+async def login(request: LoginRequest):
     '''require credentials'''
-    print(request.cookies)
-    # flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
-        # 'src/client_secret_google.json',
-        # scopes=SCOPES)
-    # flow.redirect_uri = 'http://localhost/api/googleOauth2callback'
-# 
-    # authorization_response = request.url._url # pylint: disable=W0212
-    # flow.fetch_token(authorization_response=authorization_response)
-
+    if request.oauth_service is OauthService.YANDEX:
+        yog = YandexOauthGetter(request.code)
+        user = yog.get_user_info()
+        local_user_id = UserProducer().get_id_by_auth_id(user.id)
+        print(local_user_id)
+        if local_user_id == -1:
+            # New user
+            # TODO УБРАТЬ СОХРАНЕНИЕ ПОЧТЫ И ИМЕНИ И АВАТАРКИ
+            UserProducer.create(
+                username=user.display_name,
+                email='email',
+                auth_id=user.id,
+                picture=user.default_avatar_url,
+                expire=datetime.datetime.fromtimestamp(user.expire))
+        return user
     # Store the credentials in the session.
-    credentials = request.credentials
+    return UserInfo(
+            id='g_0001',
+            display_name='Ivan Pupkin',
+            is_avatar_empty=True,
+            default_avatar_url='avatar_url',
+            token='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImdfMDAwMSIsImV4dCI6MTc0Njk2NTc4NX0.yFTWh7X1EdhaV2y9mRhfdQ9Ye10jFQ_HXycd26U2gHE',
+            expire=1746965785
+        )
 
-    user_info = await get_user_info(credentials)
-    user_id = UserProducer().get_id_by_auth_id(user_info['id'])
-    if user_id == -1:
-        #New user
-        user = UserProducer.create(
-            username=user_info['name'],
-            email=user_info['email'],
-            auth_id=user_info['id'],
-            picture=user_info['picture'],
-            expire=credentials.expiry)
-    else:
-        user = UserProducer.get_by_id(user_id=user_id)
-        user.username = user_info['name']
-        user.email = user_info['email']
-        user.auth_id = user_info['id']
-        user.picture = user_info['picture']
-        if user.session_token is None:
-            user.session_token = str(uuid.uuid4())
-        user.expire = credentials.expiry
-        UserProducer.update(user)
-    response = RedirectResponse(url="/")
-    response.set_cookie(
-        key=COOKIE_AUTHORIZATION_NAME,
-        value=user.session_token,
-        domain=COOKIE_DOMAIN)
-    return response
 
 def authentificate(request: Request) -> User:
     """Authentificate user. Return -1 if user not founded or he haven't cookie"""
@@ -197,10 +214,26 @@ def make_auth_redirect_response(request: Request) -> RedirectResponse:
 #     return 
 
 
-@app.get("/test")
-async def homeapi():
+@app.get("/user")
+async def get_user(token: str = Depends(oauth2_scheme)):
     '''Some homepage stub'''
-    return {"ping-pong": True}
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    LOGGER.info(token)
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms='HS256')
+        user_id: str = payload.get("id")
+        if user_id is None:
+            raise credentials_exception
+        local_user_id = UserProducer.get_id_by_auth_id(user_id)
+        return UserProducer.get_by_id(local_user_id)
+    except Exception as e:
+        print(e)
+        raise credentials_exception
+
 
 def make_task_html_page(count:int = 5):
     '''Generator html page for makeTask'''

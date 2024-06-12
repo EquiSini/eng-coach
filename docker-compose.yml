@@ -12,6 +12,12 @@ services:
       - DB_NAME=${POSTGRES_DB}
       - DEBUG=True
       - DB_HOST=postgres
+      - YANDEX_CLIENT_ID=${YANDEX_CLIENT_ID}
+      - YANDEX_CLIENT_SECRET=${YANDEX_CLIENT_SECRET}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - CLIENT_GOOGLE_JSON=${CLIENT_GOOGLE_JSON}
+      - JWT_SECRET=${JWT_SECRET}
     volumes:
       - ./controller/src:/app/controller
     depends_on:
@@ -26,10 +32,10 @@ services:
         GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
     ports:
       - "4200:4200"
-#    environment:
-#      - BACKEND_URL=${BACKEND_URL}
-#      - YANDEX_CLIENT_ID=${YANDEX_CLIENT_ID}
-#      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+    environment:
+      - BACKEND_URL=http://backend:8080/api
+      - YANDEX_CLIENT_ID=${YANDEX_CLIENT_ID}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
     volumes:
       - ./frontend/src/app:/usr/src/app/src/app
       - ./frontend/src/assets:/usr/src/app/src/assets

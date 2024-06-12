@@ -10,3 +10,4 @@ oauth2client>=2.4.7
 PyJWT>=2.6.0
 google_auth_oauthlib>=0.8.0
 itsdangerous>=2.1.2
+PyJWT>=2.6.0
