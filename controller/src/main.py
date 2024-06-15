@@ -10,18 +10,37 @@ from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel  # pylint: disable=no-name-in-module
 import uvicorn  # type: ignore
 from googleapiclient.discovery import build, HttpError, Resource  # type:ignore
-# import google.oauth2.credentials
 import google_auth_oauthlib.flow
 import jwt  # type: ignore
 import logging
 import sys
 
 # Import the User model and the DatabaseConnection class
-from .models import User, UserProducer, NoDataFoundError, VerbSelector, VerbChecker, UserScores
-from .settings import CLIENT_SECRETS_JSON, JWT_SECRET, SCOPES, FULL_HOST_NAME, PORT_NUMBER
-from .settings import COOKIE_AUTHORIZATION_NAME, COOKIE_DOMAIN, AUTH_REDIRECT_URL_COOKIE
-from .htmljs import HTML_HEAD, HTML_BODY, HTML_BODY_ROW
-from .login.api_model import LoginRequest, OauthService, UserInfo
+from .models import (
+    User,
+    UserProducer,
+    NoDataFoundError,
+    VerbSelector,
+    VerbChecker,
+    UserScores)
+from .settings import (
+    CLIENT_SECRETS_JSON,
+    JWT_SECRET,
+    SCOPES,
+    FULL_HOST_NAME,
+    PORT_NUMBER)
+from .settings import (
+    COOKIE_AUTHORIZATION_NAME,
+    COOKIE_DOMAIN,
+    AUTH_REDIRECT_URL_COOKIE)
+from .htmljs import (
+    HTML_HEAD,
+    HTML_BODY,
+    HTML_BODY_ROW)
+from .login.api_model import (
+    LoginRequest,
+    OauthService,
+    UserInfo)
 from .login.oauth import YandexOauthGetter
 
 
@@ -31,8 +50,9 @@ DATE_TIME_ZONE_FORMAT = '%Y-%m-%dT%H:%M:%S.%fZ'
 
 
 def setup_custom_logger(name):
-    formatter = logging.Formatter(fmt='%(asctime)s %(levelname)-8s %(message)s',
-                                  datefmt='%Y-%m-%d %H:%M:%S')
+    formatter = logging.Formatter(
+        fmt='%(asctime)s %(levelname)-8s %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S')
     handler = logging.FileHandler('controller/controller.log', mode='a')
     handler.setFormatter(formatter)
     screen_handler = logging.StreamHandler(stream=sys.stdout)
@@ -45,12 +65,10 @@ def setup_custom_logger(name):
 
 
 LOGGER = setup_custom_logger('Controller')
-# LOGGER = logging.getLogger('Controller')
-
 
 # app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 # Define the app and the endpoints
-app = FastAPI(debug=True)
+app = FastAPI(debug=True, docs_url="/docs")
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=True)
 
