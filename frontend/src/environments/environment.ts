@@ -1,0 +1,5 @@
+export const environment = {
+  YANDEX_CLIENT_ID: '!YANDEX_CLIENT_ID',
+  GOOGLE_CLIENT_ID: '!GOOGLE_CLIENT_ID',
+  BACKEND_URL: '!BACKEND_URL'
+};
