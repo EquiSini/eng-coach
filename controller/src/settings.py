@@ -1,5 +1,4 @@
 import os
-import json
 
 # AUTH
 COOKIE_AUTHORIZATION_NAME = "SESSION_TOKEN"

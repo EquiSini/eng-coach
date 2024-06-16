@@ -1,8 +1,14 @@
 '''Database connector class. Singleton with pool.'''
 from psycopg2 import pool
-#TODO use asyncpg instead psycopg2
+
+from .logger import LOGGER
+
+# TODO use asyncpg instead psycopg2
 
 from .settings import DATABASE
+
+CONNECTION_LOG_TEMPLATE = "Connecting to {user}@{host}/{database} with {pool_size} poolsize"  # noqa: E501
+
 
 class DatabaseConnection:
     '''Connector to PostgreSQL'''
@@ -12,18 +18,25 @@ class DatabaseConnection:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             # TODO level
-            user=DATABASE.get(connection_name, '{}').get('LOGIN', '')
-            host=DATABASE.get(connection_name, '{}').get('HOST', '')
-            database=DATABASE.get(connection_name, '{}').get('NAME', '')
-            pool_size=DATABASE.get('poolSize', 5)
-            print(f"Connecting to {user}@{host}/{database} with {pool_size} poolsize")
+            user = DATABASE.get(connection_name, '{}').get('LOGIN', '')
+            host = DATABASE.get(connection_name, '{}').get('HOST', '')
+            database = DATABASE.get(connection_name, '{}').get('NAME', '')
+            pool_size = DATABASE.get('poolSize', 5)
+            LOGGER.info(CONNECTION_LOG_TEMPLATE.format(
+                user=user,
+                host=host,
+                database=database,
+                pool_size=pool_size
+            ))
             cls._pool = pool.SimpleConnectionPool(
                 1,
                 pool_size,
                 host=host,
                 database=database,
                 user=user,
-                password=DATABASE.get(connection_name, '{}').get('PASSWORD', '')
+                password=DATABASE.get(connection_name, '{}').get(
+                    'PASSWORD',
+                    '')
             )
         return cls._instance
 
@@ -32,7 +45,7 @@ class DatabaseConnection:
         return self
 
     def __exit__(self, type, value, traceback):
-        #Exception handling here
+        # Exception handling here
         self._pool.putconn(self.connection)
 
     @classmethod
