@@ -2,8 +2,8 @@ from abc import ABC, abstractmethod
 import datetime
 import requests
 import jwt  # type: ignore
+from pydantic import BaseModel
 
-from .api_model import UserInfo
 from ..settings import JWT_SECRET, YANDEX_CLIENT_ID, YANDEX_CLIENT_SECRET
 
 GOOGLE_TOKEN_EXCHANGE_URL = 'https://oauth2.googleapis.com/token'
@@ -12,6 +12,26 @@ YANDEX_USERINFO_API_URL = 'https://login.yandex.ru/info?format=json'
 OAUTH_AUTH_HEADER_TEMPLATE = 'OAuth {token}'
 AVATAR_SIZE_CODE = 'islands-retina-50'
 AVATAR_URL_TEMPLATE = 'https://avatars.yandex.net/get-yapic/{avatar_id}/{size}'
+
+
+class auth_user(BaseModel):
+    """
+Represents user information.
+
+Attributes:
+- id (str): The user's ID.
+- display_name (str): The user's display name.
+- is_avatar_empty (bool): Indicates if the user's avatar is empty.
+- expire (int): The expiration time of the user's information.
+- default_avatar_url (str, optional): The default avatar URL. Defaults to None.
+- token (str, optional): The user's token. Defaults to None.
+    """
+    id: str
+    display_name: str
+    is_avatar_empty: bool
+    expire: int
+    default_avatar_url: str = None
+    token: str
 
 
 class OauthGetterBase(ABC):
@@ -29,10 +49,10 @@ class OauthGetterBase(ABC):
         pass
 
     @abstractmethod
-    def _get_user_info_by_token(self) -> UserInfo:
+    def _get_user_info_by_token(self) -> auth_user:
         pass
 
-    def get_user_info(self) -> UserInfo:
+    def get_user_info(self) -> auth_user:
         self._exchange_code_for_token()
         return self._get_user_info_by_token()
 
@@ -87,7 +107,7 @@ class YandexOauthGetter(OauthGetterBase):
             JWT_SECRET,
             algorithm='HS256')
 
-        return UserInfo(
+        return auth_user(
             id=f'y_{user_id}',
             display_name=response_json.get('display_name'),
             is_avatar_empty=response_json.get('is_avatar_empty', True),
