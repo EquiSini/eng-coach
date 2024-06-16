@@ -4,12 +4,12 @@ import {MatButtonModule} from "@angular/material/button";
 import {MatIconModule} from "@angular/material/icon";
 import {MatMenu, MatMenuItem, MatMenuTrigger} from "@angular/material/menu";
 import {LoginService} from "../../services/login.service";
-import {NgIf} from "@angular/common";
+import {AsyncPipe, NgIf} from "@angular/common";
 
 @Component({
   selector: 'app-navbar',
   standalone: true,
-  imports: [MatToolbarModule, MatButtonModule, MatIconModule, MatMenuTrigger, MatMenu, MatMenuItem, NgIf],
+  imports: [MatToolbarModule, MatButtonModule, MatIconModule, MatMenuTrigger, MatMenu, MatMenuItem, NgIf, AsyncPipe],
   templateUrl: './navbar.component.html',
   styleUrl: './navbar.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush

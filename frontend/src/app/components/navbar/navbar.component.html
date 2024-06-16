@@ -1,17 +1,22 @@
 <mat-toolbar>
-  <button mat-icon-button class="example-icon" aria-label="Example icon-button with menu icon">
-    <mat-icon>menu</mat-icon>
-  </button>
+<!--  <button mat-icon-button class="example-icon" aria-label="Example icon-button with menu icon">-->
+<!--    <mat-icon>menu</mat-icon>-->
+<!--  </button>-->
   <span>Eng Coach</span>
   <span class="example-spacer"></span>
+  <ng-container  *ngIf="loginService.isLoggedIn$ | async; else guest">
+    {{ (loginService.user$ | async)?.display_name }}
+    <button  mat-icon-button aria-label="logout" (click)="loginService.logout()">
+      <mat-icon>logout</mat-icon>
+    </button>
+  </ng-container>
 
-<!--  TODO: async pipe and user info as subject from service-->
-
-  <button  mat-icon-button [matMenuTriggerFor]="menu" aria-label="Example icon-button with a menu">
+</mat-toolbar>
+<ng-template #guest>
+  <button  mat-icon-button [matMenuTriggerFor]="menu" aria-label="login">
     <mat-icon>person</mat-icon>
   </button>
-</mat-toolbar>
-
+</ng-template>
 <mat-menu #menu="matMenu">
     <button mat-menu-item (click)="loginService.loginWithGoogle()">
    Войти с Google
