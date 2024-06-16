@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel
 
 
@@ -25,19 +25,24 @@ class UserInfo(BaseModel):
 Represents user information.
 
 Attributes:
-- id (str): The user's ID.
+- id (int): The user's ID.
 - display_name (str): The user's display name.
 - is_avatar_empty (bool): Indicates if the user's avatar is empty.
 - expire (int): The expiration time of the user's information.
 - default_avatar_url (str, optional): The default avatar URL. Defaults to None.
 - token (str, optional): The user's token. Defaults to None.
     """
-    id: str
+    id: int
     display_name: str
     is_avatar_empty: bool
     expire: int
     default_avatar_url: str = None
-    token: str = None
+    token: Optional[str] = None
+
+
+class JwtInfo(BaseModel):
+    token: str
+    user_auth_id: str
 
 
 class Message(BaseModel):

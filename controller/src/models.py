@@ -7,38 +7,22 @@ from .database import DatabaseConnection
 
 # CONSTS
 INSERT_USER_QUERY = """INSERT INTO eng_user
-    (username, email,auth_id, picture, session_token, session_expire)
-    VALUES (%s, %s, %s, %s, %s, %s) RETURNING id"""
+    (username, auth_id, picture, session_expire)
+    VALUES (%s, %s, %s, %s) RETURNING id"""
 SELECT_USER_QUERY = """SELECT
     id,
     username,
-    email,
-    auth_id,
     picture,
-    session_token,
     session_expire
 FROM eng_user WHERE id = %s"""
 UPDATE_USER_QUERY = """UPDATE eng_user
 SET
     username=%s,
-    email=%s,
-    auth_id=%s,
     picture=%s,
-    session_token=%s,
     session_expire=%s
 WHERE id=%s"""
 DELETE_USER_QUERY = "DELETE FROM eng_user WHERE id = %s"
 GET_USER_ID_BY_AUTH_ID_QUERY = "SELECT id FROM eng_user WHERE auth_id = %s"
-GET_USER_BY_SESSION_QUERY = """SELECT
-    id,
-    username,
-    email,
-    auth_id,
-    picture,
-    session_token,
-    session_expire
-FROM eng_user
-WHERE session_token = %s"""
 GET_USER_VERBS_SCORE = """select
     iv.id as verb_id,
     ivus.score
@@ -88,19 +72,13 @@ Represents a user.
 Attributes:
 - id (int): The user's ID.
 - username (str): The user's username.
-- email (str): The user's email address.
-- auth_id (str): The user's authentication ID.
 - picture (str): URL to the user's profile picture.
-- session_token (str): The user's session token (DEPRICATED).
 - expire (datetime.datetime): The expiration date of the user's session.
     """
 
     id: int = 0
     username: str
-    email: str
-    auth_id: str
     picture: str
-    session_token: str
     expire: datetime.datetime
 
     def expired(self):
@@ -258,7 +236,6 @@ class UserProducer:
     def create(
             cls,
             username: str,
-            email: str,
             auth_id: str,
             picture: str,
             expire: datetime.datetime) -> User:
@@ -267,7 +244,6 @@ Create a new user.
 
 Args:
 - username (str): The username of the user.
-- email (str): The email address of the user.
 - auth_id (str): The authentication ID of the user.
 - picture (str): The picture URL of the user.
 - expire (datetime.datetime): The expiration date of the user's session.
@@ -275,16 +251,12 @@ Args:
 Returns:
 - User: The newly created User object.
         """
-        # session_token: str = str(uuid.uuid4())
-        session_token: str = auth_id
         with DatabaseConnection() as db:
             cursor = db.connection.cursor()
             cursor.execute(INSERT_USER_QUERY, (
                 username,
-                email,
                 auth_id,
                 picture,
-                session_token,
                 expire.strftime('%Y-%m-%d %H:%M:%S.%f %Z')))
             result = cursor.fetchone()
             db.connection.commit()
@@ -293,10 +265,7 @@ Returns:
         return User(
                 id=result[0],
                 username=username,
-                email=email,
-                auth_id=auth_id,
                 picture=picture,
-                session_token=session_token,
                 expire=expire)
 
     @classmethod
@@ -311,13 +280,10 @@ Returns:
             if not result:
                 raise NoDataFoundError("User not found")
         return User(
-                id=result[0],
+                id=int(result[0]),
                 username=result[1],
-                email=result[2],
-                auth_id=result[3],
-                picture=result[4],
-                session_token=result[5],
-                expire=result[6])
+                picture=result[2],
+                expire=result[3])
 
     @classmethod
     def get_id_by_auth_id(cls, auth_id: str) -> int:
@@ -330,7 +296,7 @@ Returns:
             db.connection.close()
         if not result:
             return -1
-        return result[0]
+        return int(result[0])
 
     @classmethod
     def get_no_user(cls) -> User:
@@ -338,10 +304,7 @@ Returns:
         return User(
                 id=-1,
                 username='NO_USER',
-                email='NO_USER',
                 picture='NO_USER',
-                auth_id='NO_USER',
-                session_token='NO_USER',
                 expire=datetime.datetime.now())
 
     @classmethod
@@ -351,10 +314,7 @@ Returns:
             cursor = db.connection.cursor()
             cursor.execute(UPDATE_USER_QUERY, (
                 user.username,
-                user.email,
-                user.auth_id,
                 user.picture,
-                user.session_token,
                 user.expire.strftime('%Y-%m-%d %H:%M:%S.%f %Z'),
                 user.id))
             db.connection.commit()

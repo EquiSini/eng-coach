@@ -26,6 +26,7 @@ from .settings import (
 from .login.api_model import (
     Answer,
     ExampleResponseElement,
+    JwtInfo,
     LoginRequest,
     OauthService,
     UserInfo,
@@ -51,7 +52,9 @@ class JwtHTTPBearer(HTTPBearer):
         except HTTPException as ex:
             assert ex.status_code == status.HTTP_403_FORBIDDEN, ex
             auth_user_id = None
-        return auth_user_id
+        return JwtInfo(
+            token=token,
+            user_auth_id=auth_user_id)
 
 
 def custom_openapi():
@@ -102,23 +105,30 @@ Returns:
     """
     if request.oauth_service is OauthService.YANDEX:
         yog = YandexOauthGetter(request.code)
-        user = yog.get_user_info()
-        local_user_id = UserProducer().get_id_by_auth_id(user.id)
-        LOGGER.info(local_user_id)
+        oauth_user = yog.get_user_info()
+        local_user_id = UserProducer().get_id_by_auth_id(oauth_user.id)
         if local_user_id == -1:
             # New user
             # TODO УБРАТЬ СОХРАНЕНИЕ ПОЧТЫ И ИМЕНИ И АВАТАРКИ
-            UserProducer.create(
-                username=user.display_name,
-                email='email',
-                auth_id=user.id,
-                picture=user.default_avatar_url,
-                expire=datetime.datetime.fromtimestamp(user.expire))
-        return user
+            user = UserProducer.create(
+                username=oauth_user.display_name,
+                auth_id=oauth_user.id,
+                picture=oauth_user.default_avatar_url,
+                expire=datetime.datetime.fromtimestamp(oauth_user.expire))
+        else:
+            user = UserProducer.get_by_id(local_user_id)
+        return UserInfo(
+            id=user.id,
+            display_name=user.username,
+            is_avatar_empty=user.picture == '',
+            default_avatar_url=user.picture,
+            expire=int(user.expire.timestamp()),
+            token=oauth_user.token
+        )
     # Store the credentials in the session.
     # TODO add google oauth
     return UserInfo(
-            id='g_0001',
+            id=-1,
             display_name='Ivan Pupkin',
             is_avatar_empty=True,
             default_avatar_url='avatar_url',
@@ -150,7 +160,7 @@ Returns:
 
 
 @app.get("/user")
-async def get_user(user_auth_id: str = Depends(oauth2_scheme)) -> User:
+async def get_user(auth_data: JwtInfo = Depends(oauth2_scheme)) -> UserInfo:
     '''
 Retrieve user information.
 Requires user authentication.
@@ -158,10 +168,7 @@ Requires user authentication.
 Returns:
 - id (int): The user's ID.
 - username (str): The user's username.
-- email (str): The user's email address.
-- auth_id (str): The user's authentication ID.
 - picture (str): URL to the user's profile picture.
-- session_token (str): The user's session token (DEPRICATED).
 - expire (datetime.datetime): The expiration date of the user's session.
 
 Raises:
@@ -173,14 +180,22 @@ Raises:
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        return authentificate(user_auth_id)
+        user = authentificate(auth_data.user_auth_id)
+        return UserInfo(
+            id=user.id,
+            display_name=user.username,
+            is_avatar_empty=user.picture == '',
+            default_avatar_url=user.picture,
+            expire=int(user.expire.timestamp()),
+            token=auth_data.token
+        )
     except Exception as e:
         LOGGER.error(e)
         raise credentials_exception
 
 
 @app.get("/scores")
-async def get_scores(user_auth_id: str = Depends(oauth2_scheme)) -> dict:
+async def get_scores(auth_data: JwtInfo = Depends(oauth2_scheme)) -> dict:
     '''
 Return JSON with user irregular_verb scores
 Requires user authentication.
@@ -190,13 +205,13 @@ Returns:
     - key: verb id
     - value: score
     '''
-    user = authentificate(user_auth_id)
+    user = authentificate(auth_data.user_auth_id)
     return UserScores(user.id).getScores()
 
 
 @app.get("/example")
 async def get_example(
-        user_auth_id: str = Depends(oauth2_scheme)
+        auth_data: JwtInfo = Depends(oauth2_scheme)
         ) -> list[ExampleResponseElement]:
     '''
 Randomly generates an example based on the user's verb scores.
@@ -212,14 +227,14 @@ example. For each:
     - verb_level (int): The level of the verb.
     - score (float): Current user score of the verb.
     '''
-    user = authentificate(user_auth_id)
+    user = authentificate(auth_data.user_auth_id)
     return VerbSelector(5, user.id, 2).generate_list()
 
 
 @app.post("/example/submit")
 async def submit_answer(
         answers: List[Answer],
-        user_auth_id: str = Depends(oauth2_scheme)) -> submitAnswerResponse:
+        auth_data: JwtInfo = Depends(oauth2_scheme)) -> submitAnswerResponse:
     '''
 Checks user answer. Returns mistakes and scores lists.
 Requires user authentication.
@@ -237,7 +252,7 @@ successfully.
 answers.
 - "scores": A list of scores corresponding to each answer.
     '''
-    user = authentificate(user_auth_id)
+    user = authentificate(auth_data.user_auth_id)
     vc = VerbChecker(user.id)
     fails = []
     scores = []
