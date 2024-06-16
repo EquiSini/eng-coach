@@ -5,51 +5,94 @@ from pydantic import BaseModel
 from .database import DatabaseConnection
 
 
-#CONSTS
-INSERT_USER_QUERY = "INSERT INTO eng_user (username, email,auth_id, picture, session_token, session_expire) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id"
-SELECT_USER_QUERY = "SELECT id, username, email, auth_id, picture, session_token, session_expire FROM eng_user WHERE id = %s"
-UPDATE_USER_QUERY = "UPDATE eng_user SET username=%s, email=%s, auth_id=%s, picture=%s, session_token=%s, session_expire=%s WHERE id=%s"
+# CONSTS
+INSERT_USER_QUERY = """INSERT INTO eng_user
+    (username, email,auth_id, picture, session_token, session_expire)
+    VALUES (%s, %s, %s, %s, %s, %s) RETURNING id"""
+SELECT_USER_QUERY = """SELECT
+    id,
+    username,
+    email,
+    auth_id,
+    picture,
+    session_token,
+    session_expire
+FROM eng_user WHERE id = %s"""
+UPDATE_USER_QUERY = """UPDATE eng_user
+SET
+    username=%s,
+    email=%s,
+    auth_id=%s,
+    picture=%s,
+    session_token=%s,
+    session_expire=%s
+WHERE id=%s"""
 DELETE_USER_QUERY = "DELETE FROM eng_user WHERE id = %s"
 GET_USER_ID_BY_AUTH_ID_QUERY = "SELECT id FROM eng_user WHERE auth_id = %s"
-GET_USER_BY_SESSION_QUERY = "SELECT id, username, email, auth_id, picture, session_token, session_expire FROM eng_user WHERE session_token = %s"
-GET_USER_VERBS_SCORE = """select iv.id as verb_id, ivus.score from irregular_verbs iv 
-left outer join irregular_verbs_user_score ivus on iv.id=ivus.verb_id and ivus.user_id = %s
+GET_USER_BY_SESSION_QUERY = """SELECT
+    id,
+    username,
+    email,
+    auth_id,
+    picture,
+    session_token,
+    session_expire
+FROM eng_user
+WHERE session_token = %s"""
+GET_USER_VERBS_SCORE = """select
+    iv.id as verb_id,
+    ivus.score
+from irregular_verbs iv
+left outer join irregular_verbs_user_score ivus on
+    iv.id=ivus.verb_id
+    and ivus.user_id = %s
 where verb_level <= %s"""
-GET_USER_VERB_SCORE_FOR_CHECK = """select iv.id as verb_id,
-iv.verb, 
-iv.past, 
-iv.past_participle, 
-ivus.score 
-from irregular_verbs iv 
-left outer join irregular_verbs_user_score ivus on iv.id=ivus.verb_id and ivus.user_id = %s
+GET_USER_VERB_SCORE_FOR_CHECK = """select
+    iv.id as verb_id,
+    iv.verb,
+    iv.past,
+    iv.past_participle,
+    ivus.score
+from irregular_verbs iv
+left outer join irregular_verbs_user_score ivus on
+    iv.id=ivus.verb_id
+    and ivus.user_id = %s
 where iv.id = %s"""
-GET_USER_VERB_SCORES = """select iv.verb, 
-ivus.score 
-from irregular_verbs iv 
-left outer join irregular_verbs_user_score ivus on iv.id=ivus.verb_id and ivus.user_id = %s
+GET_USER_VERB_SCORES = """select
+    iv.verb,
+    ivus.score
+from irregular_verbs iv
+left outer join irregular_verbs_user_score ivus on
+    iv.id=ivus.verb_id
+    and ivus.user_id = %s
 ORDER BY case when ivus.score is null then 1 else 0 end, ivus.score DESC"""
-UPDATE_USER_VERB_SCORE = '''
-INSERT INTO irregular_verbs_user_score (user_id, verb_id, score) 
+UPDATE_USER_VERB_SCORE = '''INSERT INTO irregular_verbs_user_score
+    (user_id, verb_id, score)
 VALUES (%s, %s, %s)
-ON CONFLICT (user_id, verb_id) DO UPDATE 
+ON CONFLICT (user_id, verb_id) DO UPDATE
 SET score=%s'''
-GET_IRREGULAR_VERB = """SELECT id, verb, past, past_participle, verb_level
+GET_IRREGULAR_VERB = """SELECT
+    id,
+    verb,
+    past,
+    past_participle,
+    verb_level
 FROM irregular_verbs
 WHERE id = %s"""
 
 
 class User(BaseModel):
     """
-    Represents a user.
+Represents a user.
 
-    Attributes:
-        id (int): The user's ID.
-        username (str): The user's username.
-        email (str): The user's email address.
-        auth_id (str): The user's authentication ID.
-        picture (str): URL to the user's profile picture.
-        session_token (str): The user's session token (DEPRICATED).
-        expire (datetime.datetime): The expiration date of the user's session.
+Attributes:
+- id (int): The user's ID.
+- username (str): The user's username.
+- email (str): The user's email address.
+- auth_id (str): The user's authentication ID.
+- picture (str): URL to the user's profile picture.
+- session_token (str): The user's session token (DEPRICATED).
+- expire (datetime.datetime): The expiration date of the user's session.
     """
 
     id: int = 0
@@ -68,15 +111,15 @@ class User(BaseModel):
 
 class IrregularVerb(BaseModel):
     '''
-    Dataclass for irregular verbs
+Dataclass for irregular verbs
 
-    Attributes:
-        id (int): The unique identifier for the verb.
-        verb (str): The base form of the verb.
-        past (str): The past tense form of the verb.
-        past_participle (str): The past participle form of the verb.
-        verb_level (int): The level of difficulty for the verb.
-        score (float): The score associated with the verb.
+Attributes:
+- id (int): The unique identifier for the verb.
+- verb (str): The base form of the verb.
+- past (str): The past tense form of the verb.
+- past_participle (str): The past participle form of the verb.
+- verb_level (int): The level of difficulty for the verb.
+- score (float): The score associated with the verb.
     '''
     id: int
     verb: str
@@ -101,11 +144,17 @@ class UserScores:
         self.user_id = user_id
 
     def getScores(self):
+        """
+Retrieves the scores for the user's verbs from the database.
+
+Returns:
+- A dictionary containing the verb scores, where the keys are the
+verbs and the values are the scores.
+        """
         verbs = {}
         with DatabaseConnection() as db:
             cursor = db.connection.cursor()
-            cursor.execute(GET_USER_VERB_SCORES,(
-                self.user_id,))
+            cursor.execute(GET_USER_VERB_SCORES, (self.user_id,))
             results = cursor.fetchall()
             for result in results:
                 verbs[result[0]] = 0.5 if result[1] is None else result[1]
@@ -122,10 +171,10 @@ class VerbSelector:
 
     def generate_list(self):
         '''Generate list of irregular vervs'''
-        #TODO add cacheing
+        # TODO add caching
         with DatabaseConnection() as db:
             cursor = db.connection.cursor()
-            cursor.execute(GET_USER_VERBS_SCORE,(
+            cursor.execute(GET_USER_VERBS_SCORE, (
                 self.user_id,
                 self.level))
             results = cursor.fetchall()
@@ -142,19 +191,19 @@ class VerbSelector:
             db.connection.close()
         verbs = list()
         with DatabaseConnection() as db:
-            for ind in np.random.choice([i for i in range(len(ids))], 
-                                        size=self.verbs_count, 
-                                        replace=False, 
+            for ind in np.random.choice([i for i in range(len(ids))],
+                                        size=self.verbs_count,
+                                        replace=False,
                                         p=scores_norm):
                 cursor = db.connection.cursor()
-                cursor.execute(GET_IRREGULAR_VERB,(int(ids[ind]),))
+                cursor.execute(GET_IRREGULAR_VERB, (int(ids[ind]),))
                 result = cursor.fetchone()
                 verbs.append(IrregularVerb(
                     id=result[0],
                     verb=result[1],
                     past=result[2],
                     past_participle=result[3],
-                    verb_level = result[4],
+                    verb_level=result[4],
                     score=probs[ind]).dict())
                 cursor.close()
             db.connection.close()
@@ -171,18 +220,20 @@ class VerbChecker():
         rez_score = 0.5
         with DatabaseConnection() as db:
             cursor = db.connection.cursor()
-            cursor.execute(GET_USER_VERB_SCORE_FOR_CHECK,(
+            cursor.execute(GET_USER_VERB_SCORE_FOR_CHECK, (
                 self.user_id,
                 verb_id))
             result = cursor.fetchone()
             score = float(result[4]) if result[4] is not None else 0.5
-            if (result[2].strip().upper() == past.strip().upper() 
-                and result[3].strip().upper() == past_participle.strip().upper()):
+            rez_past_simp = result[2].strip().upper()
+            rez_past_part = result[3].strip().upper()
+            if (rez_past_simp == past.strip().upper()
+                    and rez_past_part == past_participle.strip().upper()):
                 rez = True
             cursor.close()
             cursor = db.connection.cursor()
             rez_score = score+(1-score)/4 if rez else score-score/2
-            cursor.execute(UPDATE_USER_VERB_SCORE,(
+            cursor.execute(UPDATE_USER_VERB_SCORE, (
                 self.user_id,
                 verb_id,
                 rez_score,
@@ -193,7 +244,7 @@ class VerbChecker():
         return rez, rez_score
 
 
-#TODO Split model and recieving
+# TODO Split model and recieving
 class UserProducer:
     '''Producer of user objects'''
     _instance = None
@@ -204,51 +255,76 @@ class UserProducer:
         return cls._instance
 
     @classmethod
-    def create(cls, username:str, email:str,
-            auth_id: str, picture: str,
+    def create(
+            cls,
+            username: str,
+            email: str,
+            auth_id: str,
+            picture: str,
             expire: datetime.datetime) -> User:
-        """Create a new user"""
+        """
+Create a new user.
+
+Args:
+- username (str): The username of the user.
+- email (str): The email address of the user.
+- auth_id (str): The authentication ID of the user.
+- picture (str): The picture URL of the user.
+- expire (datetime.datetime): The expiration date of the user's session.
+
+Returns:
+- User: The newly created User object.
+        """
         # session_token: str = str(uuid.uuid4())
         session_token: str = auth_id
         with DatabaseConnection() as db:
             cursor = db.connection.cursor()
-            cursor.execute(INSERT_USER_QUERY, (username, email, auth_id, picture, session_token,expire.strftime('%Y-%m-%d %H:%M:%S.%f %Z')))
+            cursor.execute(INSERT_USER_QUERY, (
+                username,
+                email,
+                auth_id,
+                picture,
+                session_token,
+                expire.strftime('%Y-%m-%d %H:%M:%S.%f %Z')))
             result = cursor.fetchone()
             db.connection.commit()
             cursor.close()
             db.connection.close()
-        return User(id=result[0], username=username, 
-            email=email,
-            auth_id=auth_id,
-            picture=picture,
-            session_token=session_token,
-            expire=expire)
+        return User(
+                id=result[0],
+                username=username,
+                email=email,
+                auth_id=auth_id,
+                picture=picture,
+                session_token=session_token,
+                expire=expire)
 
     @classmethod
-    def get_by_id(cls, user_id:int) -> User:
+    def get_by_id(cls, user_id: int) -> User:
         """Get a user by id"""
         with DatabaseConnection() as db:
             cursor = db.connection.cursor()
-            cursor.execute(SELECT_USER_QUERY,(user_id,))
+            cursor.execute(SELECT_USER_QUERY, (user_id,))
             result = cursor.fetchone()
             cursor.close()
             db.connection.close()
             if not result:
                 raise NoDataFoundError("User not found")
-        return User(id=result[0],
-            username=result[1],
-            email=result[2],
-            auth_id=result[3],
-            picture=result[4],
-            session_token=result[5],
-            expire=result[6])
+        return User(
+                id=result[0],
+                username=result[1],
+                email=result[2],
+                auth_id=result[3],
+                picture=result[4],
+                session_token=result[5],
+                expire=result[6])
 
     @classmethod
-    def get_id_by_auth_id(cls, auth_id:str) -> int:
+    def get_id_by_auth_id(cls, auth_id: str) -> int:
         """Get a user id by auth id. Returns -1 if not founded"""
         with DatabaseConnection() as db:
             cursor = db.connection.cursor()
-            cursor.execute(GET_USER_ID_BY_AUTH_ID_QUERY,(auth_id,))
+            cursor.execute(GET_USER_ID_BY_AUTH_ID_QUERY, (auth_id,))
             result = cursor.fetchone()
             cursor.close()
             db.connection.close()
@@ -259,21 +335,22 @@ class UserProducer:
     @classmethod
     def get_no_user(cls) -> User:
         '''Generator no user'''
-        return User(id = -1,
-            username='NO_USER',
-            email='NO_USER',
-            picture='NO_USER',
-            auth_id='NO_USER',
-            session_token='NO_USER',
-            expire=datetime.datetime.now())
-
+        return User(
+                id=-1,
+                username='NO_USER',
+                email='NO_USER',
+                picture='NO_USER',
+                auth_id='NO_USER',
+                session_token='NO_USER',
+                expire=datetime.datetime.now())
 
     @classmethod
     def update(cls, user: User) -> bool:
         """Update a user"""
         with DatabaseConnection() as db:
             cursor = db.connection.cursor()
-            cursor.execute(UPDATE_USER_QUERY,(user.username,
+            cursor.execute(UPDATE_USER_QUERY, (
+                user.username,
                 user.email,
                 user.auth_id,
                 user.picture,

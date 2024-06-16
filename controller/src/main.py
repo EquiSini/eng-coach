@@ -7,10 +7,10 @@ from fastapi import Depends, FastAPI, Request, HTTPException, status
 from fastapi.openapi.utils import get_openapi
 from fastapi.security import HTTPBearer
 
+from .logger import LOGGER
 import uvicorn  # type: ignore
 import jwt  # type: ignore
-import logging
-import sys
+
 
 # Import the User model and the DatabaseConnection class
 from .models import (
@@ -36,24 +36,6 @@ from .login.oauth import YandexOauthGetter
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 os.environ['OAUTHLIB_RELAX_TOKEN_SCOPE'] = '1'
 DATE_TIME_ZONE_FORMAT = '%Y-%m-%dT%H:%M:%S.%fZ'
-
-
-def setup_custom_logger(name):
-    formatter = logging.Formatter(
-        fmt='%(asctime)s %(levelname)-8s %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S')
-    handler = logging.FileHandler('controller/controller.log', mode='a')
-    handler.setFormatter(formatter)
-    screen_handler = logging.StreamHandler(stream=sys.stdout)
-    screen_handler.setFormatter(formatter)
-    logger = logging.getLogger(name)
-    logger.setLevel(logging.DEBUG)
-    logger.addHandler(handler)
-    logger.addHandler(screen_handler)
-    return logger
-
-
-LOGGER = setup_custom_logger('Controller')
 
 
 class JwtHTTPBearer(HTTPBearer):
@@ -102,12 +84,27 @@ app.openapi = custom_openapi
 # TODO add some pytests
 @app.post("/login")
 async def login(request: LoginRequest) -> UserInfo:
-    '''Handle user login and return user information.'''
+    """
+Handle user login and return user information.
+
+Args:
+* code (str): The login code.
+* oauth_service (OauthService): The OAuth service used for
+authentication. Accept 'google' or 'yandex'
+
+Returns:
+- id (str): The user's ID.
+- display_name (str): The user's display name.
+- is_avatar_empty (bool): Indicates if the user's avatar is empty.
+- expire (int): The expiration time of the user's information.
+- default_avatar_url (str, optional): The default avatar URL. Defaults to None.
+- token (str, optional): The user's token. Defaults to None.
+    """
     if request.oauth_service is OauthService.YANDEX:
         yog = YandexOauthGetter(request.code)
         user = yog.get_user_info()
         local_user_id = UserProducer().get_id_by_auth_id(user.id)
-        print(local_user_id)
+        LOGGER.info(local_user_id)
         if local_user_id == -1:
             # New user
             # TODO УБРАТЬ СОХРАНЕНИЕ ПОЧТЫ И ИМЕНИ И АВАТАРКИ
@@ -131,7 +128,18 @@ async def login(request: LoginRequest) -> UserInfo:
 
 
 def authentificate(user_auth_id: str) -> User:
-    """Authentificate user. Return -1 if user not founded"""
+    """
+Authentificate user.
+
+This function takes a user authentication ID as input and returns the
+corresponding User object.
+
+Parameters:
+- user_auth_id (str): The authentication ID of the user.
+
+Returns:
+- User: The User object corresponding to the authentication ID
+    """
     user_id = UserProducer.get_id_by_auth_id(user_auth_id)
     return UserProducer.get_by_id(user_id)
 
@@ -144,14 +152,20 @@ def authentificate(user_auth_id: str) -> User:
 @app.get("/user")
 async def get_user(user_auth_id: str = Depends(oauth2_scheme)) -> User:
     '''
-    Retrieve user information.
-    Requires user authentication.
+Retrieve user information.
+Requires user authentication.
 
-    Returns:
-    - User: The user object containing the user information.
+Returns:
+- id (int): The user's ID.
+- username (str): The user's username.
+- email (str): The user's email address.
+- auth_id (str): The user's authentication ID.
+- picture (str): URL to the user's profile picture.
+- session_token (str): The user's session token (DEPRICATED).
+- expire (datetime.datetime): The expiration date of the user's session.
 
-    Raises:
-    - HTTPException: If the credentials cannot be validated.
+Raises:
+- HTTPException: If the credentials cannot be validated.
     '''
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -161,20 +175,20 @@ async def get_user(user_auth_id: str = Depends(oauth2_scheme)) -> User:
     try:
         return authentificate(user_auth_id)
     except Exception as e:
-        print(e)
+        LOGGER.error(e)
         raise credentials_exception
 
 
 @app.get("/scores")
 async def get_scores(user_auth_id: str = Depends(oauth2_scheme)) -> dict:
     '''
-    Return JSON with user irregular_verb scores
-    Requires user authentication.
+Return JSON with user irregular_verb scores
+Requires user authentication.
 
-    Returns:
-        dict: A dictionary containing the user's irregular verb scores:
-            key: verb id
-            value: score
+Returns:
+- dict: A dictionary containing the user's irregular verb scores:
+    - key: verb id
+    - value: score
     '''
     user = authentificate(user_auth_id)
     return UserScores(user.id).getScores()
@@ -184,18 +198,19 @@ async def get_scores(user_auth_id: str = Depends(oauth2_scheme)) -> dict:
 async def get_example(
         user_auth_id: str = Depends(oauth2_scheme)
         ) -> list[ExampleResponseElement]:
-    '''Randomly generates an example based on the user's verb scores.
-    Requires user authentication.
+    '''
+Randomly generates an example based on the user's verb scores.
+Requires user authentication.
 
-    Returns:
-        list: A list of IrregularVerb objects representing the generated
-            example. For each:
-                id (int): The ID of the verb.
-                verb (str): The base form of the verb.
-                past (str): The past simple form of the verb.
-                past_participle (str): The past participle form of the verb.
-                verb_level (int): The level of the verb.
-                score (float): The score of the verb.
+Returns:
+- list: A list of IrregularVerb objects representing the generated
+example. For each:
+    - id (int): The ID of the verb.
+    - verb (str): The base form of the verb.
+    - past (str): The past simple form of the verb.
+    - past_participle (str): The past participle form of the verb.
+    - verb_level (int): The level of the verb.
+    - score (float): Current user score of the verb.
     '''
     user = authentificate(user_auth_id)
     return VerbSelector(5, user.id, 2).generate_list()
@@ -205,24 +220,22 @@ async def get_example(
 async def submit_answer(
         answers: List[Answer],
         user_auth_id: str = Depends(oauth2_scheme)) -> submitAnswerResponse:
-    '''Checks user answer. Returns mistakes and scores lists.
-    Requires user authentication.
+    '''
+Checks user answer. Returns mistakes and scores lists.
+Requires user authentication.
 
-    Args:
-        answers (List[Answer]): A list of Answer objects containing user's
-            answers:
-                id (int): The id of the verb being answered.
-                answer1 (str): Past Simple form.
-                answer2 (str): Past Participle form.
+Args:
+- List of Answer objects containing user's answers:
+    - id (int): The id of the verb being answered.
+    - answer1 (str): Past Simple form.
+    - answer2 (str): Past Participle form.
 
-    Returns:
-        dict: A dictionary containing the following keys:
-            - "message": A success message indicating that the answers were
-                submitted successfully.
-            - "mistakes": A list of indices indicating the positions of
-                incorrect answers.
-            - "scores": A list of scores corresponding to each answer.
-
+Returns:
+- "message": A success message indicating that the answers were submitted
+successfully.
+- "mistakes": A list of indices indicating the positions of incorrect
+answers.
+- "scores": A list of scores corresponding to each answer.
     '''
     user = authentificate(user_auth_id)
     vc = VerbChecker(user.id)
