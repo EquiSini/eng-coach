@@ -1,8 +1,7 @@
 '''Model classes'''
 import datetime
-import uuid
 import numpy as np
-from pydantic import BaseModel # pylint: disable=no-name-in-module
+from pydantic import BaseModel
 from .database import DatabaseConnection
 
 
@@ -39,9 +38,20 @@ FROM irregular_verbs
 WHERE id = %s"""
 
 
-
 class User(BaseModel):
-    '''User dataclass'''
+    """
+    Represents a user.
+
+    Attributes:
+        id (int): The user's ID.
+        username (str): The user's username.
+        email (str): The user's email address.
+        auth_id (str): The user's authentication ID.
+        picture (str): URL to the user's profile picture.
+        session_token (str): The user's session token (DEPRICATED).
+        expire (datetime.datetime): The expiration date of the user's session.
+    """
+
     id: int = 0
     username: str
     email: str
@@ -51,17 +61,30 @@ class User(BaseModel):
     expire: datetime.datetime
 
     def expired(self):
+        '''Check if the user's session has expired'''
         return self.expire < datetime.datetime.now()
     # pass: str pbkdf2 python
 
+
 class IrregularVerb(BaseModel):
-    '''Dataclass for irregular verbs'''
+    '''
+    Dataclass for irregular verbs
+
+    Attributes:
+        id (int): The unique identifier for the verb.
+        verb (str): The base form of the verb.
+        past (str): The past tense form of the verb.
+        past_participle (str): The past participle form of the verb.
+        verb_level (int): The level of difficulty for the verb.
+        score (float): The score associated with the verb.
+    '''
     id: int
     verb: str
     past: str
     past_participle: str
     verb_level: int
     score: float
+
 
 class NoDataFoundError(Exception):
     '''Class for no data errors'''
@@ -70,6 +93,7 @@ class NoDataFoundError(Exception):
 
     def __str__(self):
         return self.message
+
 
 class UserScores:
     '''User scores for irregular verbs'''
@@ -86,6 +110,7 @@ class UserScores:
             for result in results:
                 verbs[result[0]] = 0.5 if result[1] is None else result[1]
         return verbs
+
 
 class VerbSelector:
     '''Selector irregular verbs for user'''
@@ -135,6 +160,7 @@ class VerbSelector:
             db.connection.close()
         return verbs
 
+
 class VerbChecker():
     '''Check irregular verb and change score'''
     def __init__(self, user_id) -> None:
@@ -165,6 +191,7 @@ class VerbChecker():
             cursor.close()
             db.connection.close()
         return rez, rez_score
+
 
 #TODO Split model and recieving
 class UserProducer:
@@ -228,25 +255,6 @@ class UserProducer:
         if not result:
             return -1
         return result[0]
-
-    @classmethod
-    def get_by_session_token(cls, session_token:int) -> User:
-        """Get a user info by session_token."""
-        with DatabaseConnection() as db:
-            cursor = db.connection.cursor()
-            cursor.execute(GET_USER_BY_SESSION_QUERY,(session_token,))
-            result = cursor.fetchone()
-            cursor.close()
-            db.connection.close()
-        if not result:
-            raise NoDataFoundError("User not found")
-        return User(id=result[0],
-            username=result[1],
-            email=result[2],
-            auth_id=result[3],
-            picture=result[4],
-            session_token=result[5],
-            expire=result[6])
 
     @classmethod
     def get_no_user(cls) -> User:
